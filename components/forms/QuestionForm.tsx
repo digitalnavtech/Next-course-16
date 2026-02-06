@@ -27,6 +27,9 @@ import {
 } from "../ui/form";
 import { Input } from "../ui/input";
 
+// If you need to import Question type, it would look like:
+// import type { Question } from "@/types/question";
+
 const Editor = dynamic(() => import("@/components/editor"), {
   ssr: false,
 });
@@ -54,7 +57,6 @@ const QuestionForm = ({ question, isEdit = false }: Params) => {
     e: React.KeyboardEvent<HTMLInputElement>,
     field: { value: string[] }
   ) => {
-    console.log(field, e);
     if (e.key === "Enter") {
       e.preventDefault();
       const tagInput = e.currentTarget.value.trim();
@@ -90,51 +92,65 @@ const QuestionForm = ({ question, isEdit = false }: Params) => {
     }
   };
 
-const handleCreateQuestion = async (data: z.infer<typeof AskQuestionSchema>) => {
-  startTransition(async () => {
-    try {
-      if (isEdit && question) {
-        const result = await editQuestion({
-          questionId: question._id,
-          ...data,
-        });
+  const handleCreateQuestion = async (
+    data: z.infer<typeof AskQuestionSchema>
+  ) => {
+    startTransition(async () => {
+      try {
+        // EDIT MODE
+        if (isEdit && question) {
+          const result = await editQuestion({
+            questionId: question._id,
+            ...data,
+          });
+
+          if (result.success) {
+            toast.success("Success", {
+              description: "Question updated successfully",
+            });
+
+            if (result.data) {
+              // 👇 Ensure _id is a string for the route helper
+              router.push(
+                ROUTES.QUESTION(String(result.data._id))
+              );
+            }
+          } else {
+            toast.error(`Error ${result.status}`, {
+              description: result.error?.message || "Something went wrong",
+            });
+          }
+
+          return;
+        }
+
+        // CREATE MODE
+        const result = await createQuestion(data);
 
         if (result.success) {
           toast.success("Success", {
-            description: "Question updated successfully",
+            description: "Question created successfully",
           });
 
-          if (result.data) router.push(ROUTES.QUESTION(result.data._id));
+          if (result.data) {
+            // 👇 Same fix here
+            router.push(
+              ROUTES.QUESTION(String(result.data._id))
+            );
+          }
         } else {
           toast.error(`Error ${result.status}`, {
             description: result.error?.message || "Something went wrong",
           });
         }
-
-        return;
-      }
-
-      const result = await createQuestion(data);
-
-      if (result.success) {
-        toast.success("Success", {
-          description: "Question created successfully",
-        });
-
-        if (result.data) router.push(ROUTES.QUESTION(result.data._id));
-      } else {
-        toast.error(`Error ${result.status}`, {
-          description: result.error?.message || "Something went wrong",
+      } catch (err) {
+        toast.error("Request failed", {
+          description:
+            err instanceof Error ? err.message : "Something went wrong",
         });
       }
-    } catch (err) {
-      toast.error("Request failed", {
-        description: err instanceof Error ? err.message : "Something went wrong",
-      });
-    }
-  });
-};
-
+    });
+  };
 
   return (
     <Form {...form}>
@@ -164,6 +180,7 @@ const handleCreateQuestion = async (data: z.infer<typeof AskQuestionSchema>) => 
             </FormItem>
           )}
         />
+
         <FormField
           control={form.control}
           name="content"
@@ -188,6 +205,7 @@ const handleCreateQuestion = async (data: z.infer<typeof AskQuestionSchema>) => 
             </FormItem>
           )}
         />
+
         <FormField
           control={form.control}
           name="tags"
@@ -205,7 +223,7 @@ const handleCreateQuestion = async (data: z.infer<typeof AskQuestionSchema>) => 
                   />
                   {field.value.length > 0 && (
                     <div className="flex-start mt-2.5 flex-wrap gap-2.5">
-                      {field?.value?.map((tag: string) => (
+                      {field.value.map((tag: string) => (
                         <TagCard
                           key={tag}
                           _id={tag}
