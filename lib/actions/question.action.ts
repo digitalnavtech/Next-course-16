@@ -15,9 +15,18 @@ import {
   PaginatedSearchParamsSchema,
 } from "../validations";
 
+// DTO type: what you actually send to the client
+type QuestionDTO = Omit<IQuestionDoc, "_id"> & {
+  _id: string;
+};
+
+// Helper to make TS happy with the JSON.stringify trick
+const toQuestionDTO = (question: IQuestionDoc): QuestionDTO =>
+  JSON.parse(JSON.stringify(question));
+
 export async function createQuestion(
   params: CreateQuestionParams
-): Promise<ActionResponse<Question>> {
+): Promise<ActionResponse<QuestionDTO>> {
   const validationResult = await action({
     params,
     schema: AskQuestionSchema,
@@ -71,7 +80,8 @@ export async function createQuestion(
 
     await session.commitTransaction();
 
-    return { success: true, data: JSON.parse(JSON.stringify(question)) };
+    // Ensure returned data has _id as string (and TS knows it)
+    return { success: true, data: toQuestionDTO(question) };
   } catch (error) {
     await session.abortTransaction();
     return handleError(error) as ErrorResponse;
@@ -82,7 +92,7 @@ export async function createQuestion(
 
 export async function editQuestion(
   params: EditQuestionParams
-): Promise<ActionResponse<IQuestionDoc>> {
+): Promise<ActionResponse<QuestionDTO>> {
   const validationResult = await action({
     params,
     schema: EditQuestionSchema,
@@ -144,7 +154,9 @@ export async function editQuestion(
             question: questionId,
           });
 
-          question.tags.push(existingTag._id);
+          // Push the Tag's ObjectId to the question's tags array
+          // (keeps it consistent with DB schema)
+          question.tags.push(existingTag._id as any);
         }
       }
     }
@@ -163,10 +175,11 @@ export async function editQuestion(
         { session }
       );
 
+      // Filter out removed tags from the question document
       question.tags = question.tags.filter(
-        (tag: mongoose.Types.ObjectId) =>
+        (tag: any) =>
           !tagIdsToRemove.some((id: mongoose.Types.ObjectId) =>
-            id.equals(tag._id)
+            id.equals(tag._id ?? tag)
           )
       );
     }
@@ -178,7 +191,7 @@ export async function editQuestion(
     await question.save({ session });
     await session.commitTransaction();
 
-    return { success: true, data: JSON.parse(JSON.stringify(question)) };
+    return { success: true, data: toQuestionDTO(question) };
   } catch (error) {
     await session.abortTransaction();
     return handleError(error) as ErrorResponse;
@@ -189,7 +202,7 @@ export async function editQuestion(
 
 export async function getQuestion(
   params: GetQuestionParams
-): Promise<ActionResponse<Question>> {
+): Promise<ActionResponse<QuestionDTO>> {
   const validationResult = await action({
     params,
     schema: GetQuestionSchema,
@@ -209,7 +222,7 @@ export async function getQuestion(
       throw new Error("Question not found");
     }
 
-    return { success: true, data: JSON.parse(JSON.stringify(question)) };
+    return { success: true, data: toQuestionDTO(question) };
   } catch (error) {
     return handleError(error) as ErrorResponse;
   }
@@ -217,7 +230,12 @@ export async function getQuestion(
 
 export async function getQuestions(
   params: PaginatedSearchParams
-): Promise<ActionResponse<{ questions: Question[]; isNext: boolean }>> {
+): Promise<
+  ActionResponse<{
+    questions: QuestionDTO[];
+    isNext: boolean;
+  }>
+> {
   const validationResult = await action({
     params,
     schema: PaginatedSearchParamsSchema,
@@ -244,7 +262,7 @@ export async function getQuestions(
     ];
   }
 
-  let sortCriteria = {};
+  let sortCriteria: Record<string, 1 | -1> = {};
 
   switch (filter) {
     case "newest":
@@ -277,7 +295,10 @@ export async function getQuestions(
 
     return {
       success: true,
-      data: { questions: JSON.parse(JSON.stringify(questions)), isNext },
+      data: {
+        questions: JSON.parse(JSON.stringify(questions)) as QuestionDTO[],
+        isNext,
+      },
     };
   } catch (error) {
     return handleError(error) as ErrorResponse;
