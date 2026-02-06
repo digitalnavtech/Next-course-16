@@ -1,7 +1,13 @@
 import React from "react";
 
-const QuestionDetails = async ({ params }: RouteParams) => {
-  const { id } = await params;
+interface RouteParams {
+  params: {
+    id: string;
+  };
+}
+
+const QuestionDetails = ({ params }: RouteParams) => {
+  const { id } = params;
 
   return <div>Question Page: {id}</div>;
 };
