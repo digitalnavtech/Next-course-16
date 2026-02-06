@@ -27,9 +27,6 @@ import {
 } from "../ui/form";
 import { Input } from "../ui/input";
 
-// If you need to import Question type, it would look like:
-// import type { Question } from "@/types/question";
-
 const Editor = dynamic(() => import("@/components/editor"), {
   ssr: false,
 });
@@ -57,6 +54,7 @@ const QuestionForm = ({ question, isEdit = false }: Params) => {
     e: React.KeyboardEvent<HTMLInputElement>,
     field: { value: string[] }
   ) => {
+    console.log(field, e);
     if (e.key === "Enter") {
       e.preventDefault();
       const tagInput = e.currentTarget.value.trim();
@@ -110,10 +108,8 @@ const QuestionForm = ({ question, isEdit = false }: Params) => {
             });
 
             if (result.data) {
-              // 👇 Ensure _id is a string for the route helper
-              router.push(
-                ROUTES.QUESTION(String(result.data._id))
-              );
+              // Ensure _id is a string for the route helper
+              router.push(ROUTES.QUESTION(String(result.data._id)));
             }
           } else {
             toast.error(`Error ${result.status}`, {
@@ -133,20 +129,17 @@ const QuestionForm = ({ question, isEdit = false }: Params) => {
           });
 
           if (result.data) {
-            // 👇 Same fix here
-            router.push(
-              ROUTES.QUESTION(String(result.data._id))
-            );
+            router.push(ROUTES.QUESTION(String(result.data._id)));
           }
         } else {
           toast.error(`Error ${result.status}`, {
             description: result.error?.message || "Something went wrong",
           });
         }
-      } catch (err) {
+      } catch (error) {
         toast.error("Request failed", {
           description:
-            err instanceof Error ? err.message : "Something went wrong",
+            error instanceof Error ? error.message : "Something went wrong",
         });
       }
     });
@@ -180,7 +173,6 @@ const QuestionForm = ({ question, isEdit = false }: Params) => {
             </FormItem>
           )}
         />
-
         <FormField
           control={form.control}
           name="content"
@@ -205,7 +197,6 @@ const QuestionForm = ({ question, isEdit = false }: Params) => {
             </FormItem>
           )}
         />
-
         <FormField
           control={form.control}
           name="tags"
